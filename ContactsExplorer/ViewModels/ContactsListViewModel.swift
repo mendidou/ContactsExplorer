@@ -1,5 +1,5 @@
 //
-//  ContactsStore.swift
+//  ContactsListViewModel.swift
 //  ContactsExplorer
 //
 //  Created by Shai Balassiano on 17/08/2026.
@@ -9,7 +9,7 @@ import Foundation
 import os
 
 @Observable
-final class ContactsStore {
+final class ContactsListViewModel {
     enum LoadState {
         case idle
         case loading
@@ -21,7 +21,6 @@ final class ContactsStore {
     private(set) var contacts: [Contact]
     private(set) var loadState: LoadState
 
-    /// The only property the view is allowed to write: `.searchable` binds to it.
     var searchText = ""
 
     private let service: ContactsService
@@ -46,12 +45,6 @@ final class ContactsStore {
         } catch ContactsAccessError.denied {
             loadState = .permissionDenied
         } catch {
-            // A failed refresh surfaces even when contacts are already on screen. Guarding
-            // this on `contacts.isEmpty` left the user with a list that silently stopped
-            // refreshing, and it made this catch disagree with the `.denied` one above,
-            // which never guarded. Losing the displayed list on a transient error is the
-            // cost; the address book is local, so failures here are not transient, and
-            // `FailedView` offers a retry.
             Logger.contacts.error("Loading contacts failed: \(String(describing: error))")
             loadState = .failed
         }
@@ -65,8 +58,6 @@ final class ContactsStore {
         return contacts.filter { matches(contact: $0, query: query) }
     }
 
-    /// Lets the view tell "no results for a search" from "the address book is empty",
-    /// without trimming again or evaluating `filteredContacts` a second time.
     var isSearchActive: Bool {
         !trimmedSearchText.isEmpty
     }

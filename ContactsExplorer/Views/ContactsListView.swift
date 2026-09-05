@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ContactsListView: View {
-    @State private var store: ContactsStore
+    @State private var viewModel: ContactsListViewModel
     @State private var path: [Contact] = []
 
     private let favorites: FavoritesManager
@@ -17,7 +17,7 @@ struct ContactsListView: View {
     init(favorites: FavoritesManager, service: ContactsService) {
         self.favorites = favorites
         self.service = service
-        _store = State(wrappedValue: ContactsStore(service: service))
+        _viewModel = State(wrappedValue: ContactsListViewModel(service: service))
     }
 
     var body: some View {
@@ -29,24 +29,21 @@ struct ContactsListView: View {
                 }
         }
         .task {
-            guard store.loadState == .idle else { return }
-            await store.load()
+            guard viewModel.loadState == .idle else { return }
+            await viewModel.load()
         }
     }
 
     @ViewBuilder
     private var content: some View {
-        switch store.loadState {
+        switch viewModel.loadState {
         case .idle, .loading:
             ProgressView("Loading Contacts…")
         case .permissionDenied:
             PermissionDeniedView()
         case .failed:
-            FailedView { await store.load() }
-        case .loaded where store.contacts.isEmpty:
-            // Distinct from "no search results", which the list handles itself: there is
-            // nothing to search. Without this the screen renders completely blank — title,
-            // search field, and nothing between them.
+            FailedView { await viewModel.load() }
+        case .loaded where viewModel.contacts.isEmpty:
             EmptyAddressBookView()
         case .loaded:
             contactsList
@@ -54,7 +51,7 @@ struct ContactsListView: View {
     }
 
     private var contactsList: some View {
-        let results = store.filteredContacts
+        let results = viewModel.filteredContacts
         return List(results) { contact in
             Button {
                 path.append(contact)
@@ -67,16 +64,16 @@ struct ContactsListView: View {
             }
             .buttonStyle(.plain)
         }
-        .searchable(text: $store.searchText, prompt: "Name or phone number")
+        .searchable(text: $viewModel.searchText, prompt: "Name or phone number")
         .autocorrectionDisabled()
         .textInputAutocapitalization(.never)
         .overlay {
-            if results.isEmpty && store.isSearchActive {
-                ContentUnavailableView.search(text: store.searchText)
+            if results.isEmpty && viewModel.isSearchActive {
+                ContentUnavailableView.search(text: viewModel.searchText)
             }
         }
         .refreshable {
-            await store.load()
+            await viewModel.load()
         }
     }
 
