@@ -40,6 +40,24 @@ rest alone. `ContactAvatarView` and `FavoriteButton` were defined inside
 `ContactsListView.swift` while the detail screen also used them; they now have their own
 files. Nothing that only one screen uses was promoted to a shared component.
 
+**Search.** Four things, in one place. The filter, the trimming and the phone predicate lived
+in `ContactsListView` as thirty lines of view code that no test could reach; they now sit in
+`ContactsStore` next to the contacts they filter. The hand-rolled bar became `.searchable`,
+which is what supplies the clear button, the cancel button and the `searchField` trait the
+`TextField` never had — autocorrection and autocapitalisation are off, since a search over
+proper nouns is the one field where the keyboard should not guess. Name matching moved from
+`localizedCaseInsensitiveContains` to `localizedStandardContains`, which folds diacritics as
+well as case, so `jerome` finds `Jérôme`. And `filteredContacts` is read into a local before
+the body uses it: it is a computed property, and the view read it twice per render — once for
+the list, once to decide whether to show the empty-search state — so the whole address book
+was filtered twice per keystroke.
+
+One consequence to know about: on iOS 26 the system, not the app, decides where a
+`.searchable` field sits, and on iPhone that is now the bottom of the screen. Passing
+`.navigationBarDrawer(displayMode: .always)` does not move it back. The bar changing position
+is the price of adopting the system component, and I would rather pay it than keep a
+hand-rolled field to preserve a habit.
+
 ## What I deliberately left alone
 
 **The star nested inside the row button.** Reading the code, this looked like a hit-test
@@ -53,10 +71,32 @@ it would create a type that receives everything the parent has in order to re-em
 switch. `contactsList`, `initialsAvatar`: same reasoning, no narrower inputs, or too small
 to justify a type.
 
-**The hand-rolled search bar.** It should be `.searchable` — that would fix the missing
-clear button, the missing cancel button, the fact that it never collapses on scroll, and the
-keyboard that will not dismiss. I did not get to it, and I deliberately did not restructure
-a component I intend to delete.
+**Phone search does not normalise country codes.** A contact stored as `06 12 34 56 78` is
+not found by typing `+33612345678`. The predicate reduces both sides to digits and asks
+whether the stored digits *contain* the typed ones, so `"0612345678"` never contains
+`"33612345678"` and the match fails. Verified at runtime: `0612345678`, `612345678` and
+`34 56` all find the contact; `+33612345678` and `0033612345678` do not.
+
+Fixing this properly means E.164 normalisation, which means libphonenumber — a dependency
+I am not willing to add to a project this size. The cheap alternative is to compare the last
+nine digits of each side. That resolves the international case but breaks searching by a
+fragment in the middle of a number: `34 56` would stop matching. It is a trade between two
+real behaviours, not a strict improvement, so I kept the current one and named the gap here
+rather than shipping a heuristic I would have to defend.
+
+Two smaller relatives of the same predicate. `Dupont Jean` does not find `Jean Dupont` —
+the name test is a substring search, not per-word matching. And a query typed with
+Arabic-Indic digits satisfies `isWholeNumber`, so it passes `isPhoneNumber` and then can
+never match numbers stored in ASCII: an empty result with nothing explaining it.
+
+**Micro-optimising the filter any further.** After moving search into the store I measured
+three variants of the predicate. Evaluating the filter once per render instead of twice
+bought most of the gain; hoisting the query-invariant work out of the per-contact loop and
+precomputing each contact's digits at mapping time bought 0.48 ms and 0.36 ms respectively
+on 500 contacts. The same measurement showed why: on 5000 contacts a name query still costs
+6.4 ms with everything else optimised, because `localizedStandardContains` runs per contact
+and cannot be precomputed. The name comparison is the floor, so tuning the phone path is
+effort spent where the time is not.
 
 ## Where I was wrong
 
@@ -110,22 +150,17 @@ have; a proper "manage shared contacts" flow is a design and API question.
    That breaks SwiftUI's ability to skip unchanged subviews, and it means the
    `NavigationStack` path no longer matches its contact after a pull-to-refresh. This is the
    root cause behind several smaller symptoms, so it goes first.
-2. **Remove the debug `print` in the search filter.** It runs once per contact per keystroke.
-3. **Search is diacritic-sensitive** — `localizedCaseInsensitiveContains` means "rene" does
-   not find "René". `localizedStandardContains` fixes it.
-4. **Replace the search bar with `.searchable`**, and disable autocapitalisation and
-   autocorrection — typing `anna` currently shows `Anna`.
-5. **Missing states.** A granted-but-empty address book renders a blank list. A refresh
-   that fails while contacts are already on screen keeps the stale data and says nothing —
-   keeping the data is defensible, staying silent is not.
-6. **Birthdays without a year render as year 1.** `CNContact.birthday` is a `DateComponents`
+2. **Test the search.** Filtering by name or phone number is the one behaviour the brief
+   names, the logic now lives in `ContactsStore` where a test can reach it, and it has none.
+   Name, diacritics, phone with separators, and the international gap above as a failing
+   case that documents the limit.
+3. **A granted-but-empty address book renders a blank list.** No contacts and no permission
+   problem is a state the app does not name.
+4. **Birthdays without a year render as year 1.** `CNContact.birthday` is a `DateComponents`
    whose `year` is often nil, and `Calendar.date(from:)` fills it with 1.
-7. **Touch targets.** The star measures 22×20 pt in the list and 32×36 pt in the detail
+5. **Touch targets.** The star measures 22×20 pt in the list and 32×36 pt in the detail
    toolbar, against Apple's 44×44 minimum.
-8. **`MockGenerator` is in the app target**, so preview fixtures ship in the release binary.
-
-Items 2 and 3 are one-line changes I would normally have done first; I left them because I
-was mid-refactor and did not want a behaviour change inside a structural commit.
+6. **`MockGenerator` is in the app target**, so preview fixtures ship in the release binary.
 
 ## Verification
 
@@ -133,3 +168,13 @@ Everything I claim to have tested was tested on an iPhone 17 Pro simulator runni
 iOS 26.5: navigation, favourite toggling from both screens, favourite sync between them,
 persistence across a relaunch, search by name, search by phone number with a space, and the
 permission-denied screen. `docs/UI-FINDINGS.md` marks anything I could not trigger.
+
+Two claims about the search rest on weaker evidence, and I would rather say so than let the
+list above cover them. The diacritic fix was verified by comparing both comparators directly
+— `localizedCaseInsensitiveContains` fails on `jerome`/`Jérôme`, `muller`/`Müller`,
+`noel`/`Noël` where `localizedStandardContains` succeeds, with no ASCII regression and no
+false positive — but not end to end, because the simulator's address book contains no
+accented name. And the disabled autocorrection is in the code and unverified by hand: I could
+not give focus to the iOS 26 search field through UI automation, so I have not typed into it.
+The timings quoted earlier come from a standalone benchmark on an Apple Silicon Mac, not from
+Instruments on device; a phone is slower, so treat them as ratios rather than absolutes.
