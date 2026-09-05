@@ -5,7 +5,6 @@
 //  Created by Shai Balassiano on 17/08/2026.
 //
 
-import Combine
 import Contacts
 import Foundation
 import os
@@ -17,7 +16,8 @@ private let logger = Logger(subsystem: "com.shaibalassiano.ContactsExplorer", ca
 // 2026-08-18: added @concurrent so fetching doesn't block the main thread
 // 2026-08-19: fixed missing formatter keys crash (code review feedback)
 // 2026-08-20: refactored per developer request
-final class ContactsStore: ObservableObject {
+@Observable
+final class ContactsStore {
     enum LoadState {
         case idle
         case loading
@@ -26,9 +26,9 @@ final class ContactsStore: ObservableObject {
         case failed
     }
 
-    @Published private(set) var contacts: [Contact]
-    @Published private(set) var state: LoadState
-    @Published private(set) var favoriteIDs: Set<String>
+    private(set) var contacts: [Contact]
+    private(set) var state: LoadState
+    private(set) var favoriteIDs: Set<String>
 
     init(
         contacts: [Contact] = [],

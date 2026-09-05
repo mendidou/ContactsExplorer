@@ -13,7 +13,7 @@ private let logger = Logger(subsystem: "com.shaibalassiano.ContactsExplorer", ca
 
 struct ContactDetailView: View {
     let contact: Contact
-    @ObservedObject var store: ContactsStore
+    let store: ContactsStore
     @State private var fullImageData: Data?
 
     var body: some View {

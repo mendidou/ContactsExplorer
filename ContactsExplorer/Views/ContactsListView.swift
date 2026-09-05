@@ -10,12 +10,12 @@ import UIKit
 
 struct ContactsListView: View {
     @Environment(\.openURL) private var openURL
-    @StateObject private var store: ContactsStore
+    @State private var store: ContactsStore
     @State private var path: [Contact] = []
     @State private var searchText = ""
 
     init(store: ContactsStore = ContactsStore()) {
-        _store = StateObject(wrappedValue: store)
+        _store = State(wrappedValue: store)
     }
 
     var body: some View {
