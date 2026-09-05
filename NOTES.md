@@ -102,9 +102,10 @@ reproduce the year-1 bug on demand.
 Two things came out of building it. Wiring the photo path revealed that `ContactDetailView`
 was still being handed the *live* service while the list had switched to the mock, so the
 detail screen queried the real `CNContactStore` with an invented identifier — visible only in
-the runtime log, never on screen. The fix is better production code regardless of debug: the
-service now has one owner, the view model, and the view no longer keeps its own copy to
-diverge from. And folding the old `MockGenerator` into this generator put every fixture behind
+the runtime log, never on screen. The fix is better production code regardless of debug: the list
+view no longer keeps a copy of the service in order to hand it on. The detail screen is given
+whichever service the view model holds at the moment it is pushed, so the two can no longer
+disagree. And folding the old `MockGenerator` into this generator put every fixture behind
 `#if DEBUG`, which a Release build confirms: mock data no longer ships in the binary.
 
 Two of those tests are worth singling out. The diacritic one is backed by a fixture named
@@ -150,6 +151,18 @@ Two smaller relatives of the same predicate. `Dupont Jean` does not find `Jean D
 the name test is a substring search, not per-word matching. And a query typed with
 Arabic-Indic digits satisfies `isWholeNumber`, so it passes `isPhoneNumber` and then can
 never match numbers stored in ASCII: an empty result with nothing explaining it.
+
+**Generation-tracking in `load()`.** `load()` reads the service, awaits the fetch, and assigns
+the result afterwards. A load already in flight when the service changes will therefore
+overwrite whatever the newer one produced. The fix is a generation counter compared before
+assigning — three lines and a guard in each catch.
+
+I left it. The only thing that ever swaps the service is the debug menu, so in a release build
+every concurrent `load()` reads the same source and last-writer-wins is the correct outcome.
+Adding a counter to production code to protect a debug affordance buys a defect nobody can
+reach and costs a mechanism the next reader has to justify. If a second real source ever
+appears — an in-memory cache, a second account — this becomes a genuine bug and the counter
+becomes the right answer.
 
 **Micro-optimising the filter any further.** After moving search into the store I measured
 three variants of the predicate. Evaluating the filter once per render instead of twice

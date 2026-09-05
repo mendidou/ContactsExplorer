@@ -23,8 +23,9 @@ final class ContactsListViewModel {
 
     var searchText = ""
 
-    /// Read by the detail screen rather than copied into it: the debug menu swaps this at
-    /// runtime, and a copy would go on querying the real address book after the swap.
+    /// Handed to the detail screen at push time rather than the service the app was built
+    /// with: the debug menu can swap this one, and a screen pushed afterwards must not go on
+    /// querying an address book the list has already left.
     private(set) var contactsService: ContactsService
 
     init(
