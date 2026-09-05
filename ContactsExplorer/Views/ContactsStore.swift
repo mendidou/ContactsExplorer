@@ -5,7 +5,6 @@
 //  Created by Shai Balassiano on 17/08/2026.
 //
 
-import Contacts
 import Foundation
 import os
 
@@ -29,6 +28,8 @@ final class ContactsStore {
     private(set) var contacts: [Contact]
     private(set) var state: LoadState
 
+    private let service = ContactsService()
+
     init(
         contacts: [Contact] = [],
         state: LoadState = .idle
@@ -44,49 +45,17 @@ final class ContactsStore {
             //TODO Mendy : show a message if empty
         }
         do {
-            // Step 2: request permission from the user
-            guard try await requestAccessIfNeeded() else {
-                state = .permissionDenied
-                return
-            }
-            // Step 3: fetch the contacts from the device
-            let keysToFetch: [CNKeyDescriptor] = [
-                CNContactFormatter.descriptorForRequiredKeys(for: .fullName),
-                CNContactGivenNameKey as CNKeyDescriptor,
-                CNContactFamilyNameKey as CNKeyDescriptor,
-                CNContactOrganizationNameKey as CNKeyDescriptor,
-                CNContactPhoneNumbersKey as CNKeyDescriptor,
-                CNContactEmailAddressesKey as CNKeyDescriptor,
-                CNContactBirthdayKey as CNKeyDescriptor,
-                CNContactThumbnailImageDataKey as CNKeyDescriptor
-            ]
-            let request = CNContactFetchRequest(keysToFetch: keysToFetch)
-            request.sortOrder = .userDefault
-            var fetchedContacts: [Contact] = []
-            try CNContactStore().enumerateContacts(with: request) { cnContact, _ in
-                fetchedContacts.append(Contact(cnContact))
-            }
-            contacts = fetchedContacts
-            // Step 4: update the UI state
+            // Step 2: fetch the contacts from the device (permission included)
+            contacts = try await service.fetchContacts()
+            // Step 3: update the UI state
             state = .loaded
+        } catch ContactsAccessError.denied {
+            state = .permissionDenied
         } catch {
             logger.error("Loading contacts failed: \(String(describing: error))")
             if contacts.isEmpty {
                 state = .failed
             }
-        }
-    }
-
-    private func requestAccessIfNeeded() async throws -> Bool {
-        switch CNContactStore.authorizationStatus(for: .contacts) {
-        case .authorized, .limited:
-            true
-        case .notDetermined:
-            try await CNContactStore().requestAccess(for: .contacts)
-        case .denied, .restricted:
-            false
-        @unknown default:
-            false
         }
     }
 }
