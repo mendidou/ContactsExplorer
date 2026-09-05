@@ -6,13 +6,13 @@
 import Contacts
 import Foundation
 
-/// Separate from a read failure so callers can map it to its own screen state.
 enum ContactsAccessError: Error {
     case denied
 }
 
 /// The only type in the project allowed to reach for `CNContactStore`.
 final class ContactsService {
+    @concurrent
     func fetchContacts() async throws -> [Contact] {
         guard try await requestAccessIfNeeded() else {
             throw ContactsAccessError.denied
@@ -29,6 +29,9 @@ final class ContactsService {
             CNContactBirthdayKey as CNKeyDescriptor,
             CNContactThumbnailImageDataKey as CNKeyDescriptor
         ]
+        // CNContactStore and CNContactFetchRequest are not Sendable. They are legal inside a
+        // @concurrent function only because they never leave it: region isolation sees them as
+        // local. Promoting either to a stored property of this service breaks that.
         let request = CNContactFetchRequest(keysToFetch: keysToFetch)
         request.sortOrder = .userDefault
         var fetchedContacts: [Contact] = []
@@ -38,6 +41,7 @@ final class ContactsService {
         return fetchedContacts
     }
 
+    @concurrent
     private func requestAccessIfNeeded() async throws -> Bool {
         switch CNContactStore.authorizationStatus(for: .contacts) {
         case .authorized, .limited:
