@@ -43,6 +43,11 @@ struct ContactsListView: View {
             PermissionDeniedView()
         case .failed:
             FailedView { await store.load() }
+        case .loaded where store.contacts.isEmpty:
+            // Distinct from "no search results", which the list handles itself: there is
+            // nothing to search. Without this the screen renders completely blank — title,
+            // search field, and nothing between them.
+            EmptyAddressBookView()
         case .loaded:
             contactsList
         }
