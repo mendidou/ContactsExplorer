@@ -8,8 +8,6 @@
 import SwiftUI
 import os
 
-private let logger = Logger(subsystem: "com.shaibalassiano.ContactsExplorer", category: "ContactDetailView")
-
 struct ContactDetailView: View {
     let contact: Contact
     let favorites: FavoritesManager
@@ -36,7 +34,7 @@ struct ContactDetailView: View {
         do {
             fullImageData = try await service.fullImageData(for: contact.id)
         } catch {
-            logger.error("Loading contact image failed: \(String(describing: error))")
+            Logger.contacts.error("Loading contact image failed: \(String(describing: error))")
         }
     }
 }

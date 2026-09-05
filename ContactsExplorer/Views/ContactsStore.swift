@@ -8,8 +8,6 @@
 import Foundation
 import os
 
-private let logger = Logger(subsystem: "com.shaibalassiano.ContactsExplorer", category: "ContactsStore")
-
 @Observable
 final class ContactsStore {
     enum LoadState {
@@ -38,7 +36,6 @@ final class ContactsStore {
     func load() async {
         if contacts.isEmpty {
             state = .loading
-            //TODO Mendy : show a message if empty
         }
         do {
             contacts = try await service.fetchContacts()
@@ -46,7 +43,7 @@ final class ContactsStore {
         } catch ContactsAccessError.denied {
             state = .permissionDenied
         } catch {
-            logger.error("Loading contacts failed: \(String(describing: error))")
+            Logger.contacts.error("Loading contacts failed: \(String(describing: error))")
             if contacts.isEmpty {
                 state = .failed
             }
