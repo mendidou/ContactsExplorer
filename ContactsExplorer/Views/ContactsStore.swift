@@ -46,10 +46,14 @@ final class ContactsStore {
         } catch ContactsAccessError.denied {
             loadState = .permissionDenied
         } catch {
+            // A failed refresh surfaces even when contacts are already on screen. Guarding
+            // this on `contacts.isEmpty` left the user with a list that silently stopped
+            // refreshing, and it made this catch disagree with the `.denied` one above,
+            // which never guarded. Losing the displayed list on a transient error is the
+            // cost; the address book is local, so failures here are not transient, and
+            // `FailedView` offers a retry.
             Logger.contacts.error("Loading contacts failed: \(String(describing: error))")
-            if contacts.isEmpty {
-                loadState = .failed
-            }
+            loadState = .failed
         }
     }
 

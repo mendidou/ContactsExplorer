@@ -84,6 +84,25 @@ for the permission screen, except the process never lives long enough to do it.
 The pattern in all three: a defect that is obvious on the page and absent from the device.
 It is why the audit tags every claim with how I know it.
 
+## Questions I would take to design
+
+Two gaps are real but the right answer is a product decision, not an engineering one. I
+made the conservative call and would raise both rather than invent an interface.
+
+**A failed refresh with contacts already on screen.** It used to fail silently: the list
+stayed, `loadState` stayed `.loaded`, and nothing told the user the refresh had not worked.
+I now surface the error screen unconditionally, which also makes this catch agree with the
+`.denied` one next to it. The cost is that a transient failure replaces a list the user was
+reading. The better answer is probably to keep the list and show a non-blocking signal —
+banner, toast, or an inline row — but which one, and how insistent, is a design call.
+
+**Limited contacts access.** On iOS 18+ the user can share a subset. The app treats
+`.limited` as full authorisation, which is right — you show what you were given — but it
+presents a partial address book as if it were complete. Someone who shared two contacts
+searches for a third, finds nothing, and has no way to understand why or to widen the
+selection from inside the app. The minimum is a banner plus the Settings link we already
+have; a proper "manage shared contacts" flow is a design and API question.
+
 ## What I would do next, in order
 
 1. **`Contact` equality is unstable.** `LabeledValue` has `let id = UUID()`, and `Hashable`
