@@ -32,7 +32,7 @@ struct ContactDetailView: View {
 
     private func loadFullImage() async {
         do {
-            fullImageData = try await service.fullImageData(for: contact.id)
+            fullImageData = try await service.fullImageData(contact.id)
         } catch {
             Logger.contacts.error("Loading contact image failed: \(String(describing: error))")
         }

@@ -7,16 +7,33 @@
 
 import Foundation
 
+/// Where the favorites are read from and written to. Injected so the store can be
+/// exercised without touching `UserDefaults`.
+struct FavoritesStorage: Sendable {
+    var load: @Sendable () -> Set<String>
+    var save: @Sendable (Set<String>) -> Void
+}
+
+extension FavoritesStorage {
+    private nonisolated static let key = "favoriteContactIDs"
+
+    static let userDefaults = FavoritesStorage(
+        load: { Set(UserDefaults.standard.stringArray(forKey: key) ?? []) },
+        save: { UserDefaults.standard.set(Array($0), forKey: key) }
+    )
+}
+
+/// Stays a class: it holds state the screens observe, and both of them must see the
+/// same instance for the star to stay in sync.
 @Observable
 final class FavoritesManager {
-    private enum Key: String {
-        case favoriteContactIDs
-    }
-
     private(set) var ids: Set<String>
 
-    init() {
-        ids = Set(UserDefaults.standard.stringArray(forKey: Key.favoriteContactIDs.rawValue) ?? [])
+    private let storage: FavoritesStorage
+
+    init(storage: FavoritesStorage = .userDefaults) {
+        self.storage = storage
+        ids = storage.load()
     }
 
     func toggle(_ contactID: String) {
@@ -25,14 +42,10 @@ final class FavoritesManager {
         } else {
             ids.insert(contactID)
         }
-        persist()
+        storage.save(ids)
     }
 
     func contains(_ contactID: String) -> Bool {
         ids.contains(contactID)
-    }
-
-    private func persist() {
-        UserDefaults.standard.set(Array(ids), forKey: Key.favoriteContactIDs.rawValue)
     }
 }

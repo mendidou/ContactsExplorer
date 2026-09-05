@@ -110,7 +110,7 @@ struct MockGenerator {
         contacts: [Contact] = MockGenerator.contacts(),
         loadState: ContactsStore.LoadState = .loaded
     ) -> ContactsStore {
-        ContactsStore(service: ContactsService(), contacts: contacts, loadState: loadState)
+        ContactsStore(service: .live, contacts: contacts, loadState: loadState)
     }
 
     static func date(year: Int, month: Int, day: Int) -> Date? {
