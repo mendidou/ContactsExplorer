@@ -33,31 +33,31 @@ struct FavoritesManagerTests {
     @Test("Reads what was already stored")
     func loadsExistingIDs() {
         let spy = StorageSpy(initial: ["contact-emma"])
-        let favorites = FavoritesManager(storage: spy.storage)
+        let favoritesManager = FavoritesManager(storage: spy.storage)
 
-        #expect(favorites.contains("contact-emma"))
-        #expect(favorites.contains("contact-james") == false)
+        #expect(favoritesManager.contains("contact-emma"))
+        #expect(favoritesManager.contains("contact-james") == false)
     }
 
     @Test("Toggling adds, then removes")
     func toggleAddsThenRemoves() {
-        let favorites = FavoritesManager(storage: StorageSpy().storage)
+        let favoritesManager = FavoritesManager(storage: StorageSpy().storage)
 
-        favorites.toggle("contact-emma")
-        #expect(favorites.contains("contact-emma"))
+        favoritesManager.toggle("contact-emma")
+        #expect(favoritesManager.contains("contact-emma"))
 
-        favorites.toggle("contact-emma")
-        #expect(favorites.contains("contact-emma") == false)
+        favoritesManager.toggle("contact-emma")
+        #expect(favoritesManager.contains("contact-emma") == false)
     }
 
     @Test("Every toggle is written out, so nothing is lost on relaunch")
     func everyToggleIsPersisted() {
         let spy = StorageSpy()
-        let favorites = FavoritesManager(storage: spy.storage)
+        let favoritesManager = FavoritesManager(storage: spy.storage)
 
-        favorites.toggle("contact-emma")
-        favorites.toggle("contact-james")
-        favorites.toggle("contact-emma")
+        favoritesManager.toggle("contact-emma")
+        favoritesManager.toggle("contact-james")
+        favoritesManager.toggle("contact-emma")
 
         #expect(spy.saved.count == 3)
         #expect(spy.saved.last == ["contact-james"])

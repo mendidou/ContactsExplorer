@@ -11,10 +11,10 @@ struct ContactsListView: View {
     @State private var viewModel: ContactsListViewModel
     @State private var path: [Contact] = []
 
-    private let favorites: FavoritesManager
+    private let favoritesManager: FavoritesManager
 
-    init(favorites: FavoritesManager, service: ContactsService) {
-        self.favorites = favorites
+    init(favoritesManager: FavoritesManager, service: ContactsService) {
+        self.favoritesManager = favoritesManager
         _viewModel = State(wrappedValue: ContactsListViewModel(service: service))
     }
 
@@ -23,7 +23,7 @@ struct ContactsListView: View {
             content
                 .navigationTitle("Contacts")
                 .navigationDestination(for: Contact.self) { contact in
-                    ContactDetailView(contact: contact, favorites: favorites, service: viewModel.contactsService)
+                    ContactDetailView(contact: contact, favoritesManager: favoritesManager, service: viewModel.contactsService)
                 }
                 .debugMenu(for: viewModel)
         }
@@ -57,8 +57,8 @@ struct ContactsListView: View {
             } label: {
                 Row(
                     contact: contact,
-                    isFavorite: favorites.contains(contact.id),
-                    onToggleFavorite: { favorites.toggle(contact.id) }
+                    isFavorite: favoritesManager.contains(contact.id),
+                    onToggleFavorite: { favoritesManager.toggle(contact.id) }
                 )
             }
             .buttonStyle(.plain)

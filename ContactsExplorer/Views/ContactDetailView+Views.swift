@@ -86,12 +86,12 @@ extension ContactDetailView {
 
     struct FavoriteToolbarButton: View {
         let contactID: String
-        let favorites: FavoritesManager
+        let favoritesManager: FavoritesManager
 
         var body: some View {
             FavoriteButton(
-                isFavorite: favorites.contains(contactID),
-                action: { favorites.toggle(contactID) }
+                isFavorite: favoritesManager.contains(contactID),
+                action: { favoritesManager.toggle(contactID) }
             )
         }
     }

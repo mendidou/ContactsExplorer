@@ -9,12 +9,12 @@ import SwiftUI
 
 @main
 struct ContactsExplorerApp: App {
-    @State private var favorites = FavoritesManager()
+    @State private var favoritesManager = FavoritesManager()
     private let service = ContactsService.live
 
     var body: some Scene {
         WindowGroup {
-            ContactsListView(favorites: favorites, service: service)
+            ContactsListView(favoritesManager: favoritesManager, service: service)
         }
     }
 }

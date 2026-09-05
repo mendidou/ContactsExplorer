@@ -10,7 +10,7 @@ import os
 
 struct ContactDetailView: View {
     let contact: Contact
-    let favorites: FavoritesManager
+    let favoritesManager: FavoritesManager
     let service: ContactsService
     @State private var fullImageData: Data?
 
@@ -22,7 +22,7 @@ struct ContactDetailView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                FavoriteToolbarButton(contactID: contact.id, favorites: favorites)
+                FavoriteToolbarButton(contactID: contact.id, favoritesManager: favoritesManager)
             }
         }
         .task {
