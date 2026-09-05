@@ -41,6 +41,19 @@ final class ContactsService {
         return fetchedContacts
     }
 
+    /// Full-size photo, fetched on demand. `Contact.thumbnailData` already carries the small
+    /// one, so this is only worth asking for on the detail screen.
+    @concurrent
+    func fullImageData(for contactID: String) async throws -> Data? {
+        guard try await requestAccessIfNeeded() else {
+            throw ContactsAccessError.denied
+        }
+        let keysToFetch = [CNContactImageDataKey as CNKeyDescriptor]
+        return try CNContactStore()
+            .unifiedContact(withIdentifier: contactID, keysToFetch: keysToFetch)
+            .imageData
+    }
+
     @concurrent
     private func requestAccessIfNeeded() async throws -> Bool {
         switch CNContactStore.authorizationStatus(for: .contacts) {

@@ -13,10 +13,12 @@ struct ContactsListView: View {
     @State private var searchText = ""
 
     private let favorites: FavoritesManager
+    private let service: ContactsService
 
-    init(favorites: FavoritesManager, store: ContactsStore = ContactsStore()) {
+    init(favorites: FavoritesManager, service: ContactsService) {
         self.favorites = favorites
-        _store = State(wrappedValue: store)
+        self.service = service
+        _store = State(wrappedValue: ContactsStore(service: service))
     }
 
     var body: some View {
@@ -24,7 +26,7 @@ struct ContactsListView: View {
             content
                 .navigationTitle("Contacts")
                 .navigationDestination(for: Contact.self) { contact in
-                    ContactDetailView(contact: contact, favorites: favorites)
+                    ContactDetailView(contact: contact, favorites: favorites, service: service)
                 }
         }
         .task {

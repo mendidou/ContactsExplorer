@@ -23,12 +23,14 @@ final class ContactsStore {
     private(set) var contacts: [Contact]
     private(set) var state: LoadState
 
-    private let service = ContactsService()
+    private let service: ContactsService
 
     init(
+        service: ContactsService,
         contacts: [Contact] = [],
         state: LoadState = .idle
     ) {
+        self.service = service
         self.contacts = contacts
         self.state = state
     }
