@@ -60,7 +60,7 @@ a component I intend to delete.
 
 ## Where I was wrong
 
-Twice, and both are in the audit.
+Three times, and all three are in the audit.
 
 I classified the nested-button hit test as blocking on a code reading alone. Testing
 disproved it.
@@ -71,6 +71,18 @@ with temporary probes: the parent body does **not** re-run — only the six row 
 row-content closure of a `List` is evaluated in the row's own context, so the observation
 read is attributed there. My proposed fix is still worth doing, but it buys less than I
 said: six full rows become six leaf views, not "the parent stops running".
+
+Third, I wrote that a denied permission is never re-checked — grant it in Settings, come
+back, and the app sits on "No Access" until relaunch. I tested both directions with the
+app in the foreground and watched `launchctl list`: iOS terminates the app on *any*
+Contacts permission change, granting included. The next launch starts from `.idle` and
+resolves correctly. There is nothing to fix, and a `scenePhase` re-check would be dead
+code. The same reasoning retires a related asymmetry in `load()` — the `.denied` catch has
+no `contacts.isEmpty` guard where the generic catch does, which would swap a populated list
+for the permission screen, except the process never lives long enough to do it.
+
+The pattern in all three: a defect that is obvious on the page and absent from the device.
+It is why the audit tags every claim with how I know it.
 
 ## What I would do next, in order
 
@@ -84,9 +96,9 @@ said: six full rows become six leaf views, not "the parent stops running".
    not find "René". `localizedStandardContains` fixes it.
 4. **Replace the search bar with `.searchable`**, and disable autocapitalisation and
    autocorrection — typing `anna` currently shows `Anna`.
-5. **Missing states.** A granted-but-empty address book renders a blank list. A denied
-   permission is never re-checked, so granting it in Settings and coming back leaves the app
-   stuck on "No Access" until relaunch.
+5. **Missing states.** A granted-but-empty address book renders a blank list. A refresh
+   that fails while contacts are already on screen keeps the stale data and says nothing —
+   keeping the data is defensible, staying silent is not.
 6. **Birthdays without a year render as year 1.** `CNContact.birthday` is a `DateComponents`
    whose `year` is often nil, and `Calendar.date(from:)` fills it with 1.
 7. **Touch targets.** The star measures 22×20 pt in the list and 32×36 pt in the detail
