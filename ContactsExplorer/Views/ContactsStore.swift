@@ -21,6 +21,9 @@ final class ContactsStore {
     private(set) var contacts: [Contact]
     private(set) var loadState: LoadState
 
+    /// The only property the view is allowed to write: `.searchable` binds to it.
+    var searchText = ""
+
     private let service: ContactsService
 
     init(
@@ -48,5 +51,39 @@ final class ContactsStore {
                 loadState = .failed
             }
         }
+    }
+
+    // MARK: - Search
+
+    var filteredContacts: [Contact] {
+        let query = trimmedSearchText
+        guard !query.isEmpty else { return contacts }
+        return contacts.filter { matches(contact: $0, query: query) }
+    }
+
+    /// Lets the view tell "no results for a search" from "the address book is empty",
+    /// without trimming again or evaluating `filteredContacts` a second time.
+    var isSearchActive: Bool {
+        !trimmedSearchText.isEmpty
+    }
+
+    private var trimmedSearchText: String {
+        searchText.trimmingCharacters(in: .whitespaces)
+    }
+
+    private func matches(contact: Contact, query: String) -> Bool {
+        if contact.displayName.localizedStandardContains(query) {
+            return true
+        }
+        guard isPhoneNumber(query: query) else {
+            return false
+        }
+        let queryDigits = query.filter(\.isWholeNumber)
+        return contact.phoneNumbers.contains { $0.value.filter(\.isWholeNumber).contains(queryDigits) }
+    }
+
+    private func isPhoneNumber(query: String) -> Bool {
+        query.contains(where: \.isWholeNumber) &&
+            query.allSatisfy { $0.isWholeNumber || "+-(). ".contains($0) }
     }
 }

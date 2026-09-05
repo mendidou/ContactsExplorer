@@ -10,7 +10,6 @@ import SwiftUI
 struct ContactsListView: View {
     @State private var store: ContactsStore
     @State private var path: [Contact] = []
-    @State private var searchText = ""
 
     private let favorites: FavoritesManager
     private let service: ContactsService
@@ -50,69 +49,30 @@ struct ContactsListView: View {
     }
 
     private var contactsList: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField("Name or phone number", text: $searchText)
+        let results = store.filteredContacts
+        return List(results) { contact in
+            Button {
+                path.append(contact)
+            } label: {
+                Row(
+                    contact: contact,
+                    isFavorite: favorites.contains(contact.id),
+                    onToggleFavorite: { favorites.toggle(contact.id) }
+                )
             }
-            .padding(8)
-            .background(Color(.systemGray6))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .padding(.horizontal)
-            List(filteredContacts) { contact in
-                Button {
-                    path.append(contact)
-                } label: {
-                    Row(
-                        contact: contact,
-                        isFavorite: favorites.contains(contact.id),
-                        onToggleFavorite: { favorites.toggle(contact.id) }
-                    )
-                }
-                .buttonStyle(.plain)
-            }
-            .overlay {
-                if hasNoSearchResults {
-                    ContentUnavailableView.search(text: searchText)
-                }
-            }
-            .refreshable {
-                await store.load()
+            .buttonStyle(.plain)
+        }
+        .searchable(text: $store.searchText, prompt: "Name or phone number")
+        .autocorrectionDisabled()
+        .textInputAutocapitalization(.never)
+        .overlay {
+            if results.isEmpty && store.isSearchActive {
+                ContentUnavailableView.search(text: store.searchText)
             }
         }
-    }
-
-    // MARK: - Search Logic
-
-    private var filteredContacts: [Contact] {
-        let query = trimmedSearchText
-        guard !query.isEmpty else { return store.contacts }
-        return store.contacts.filter { matches(contact: $0, query: query) }
-    }
-
-    private var hasNoSearchResults: Bool {
-        !trimmedSearchText.isEmpty && filteredContacts.isEmpty
-    }
-
-    private var trimmedSearchText: String {
-        searchText.trimmingCharacters(in: .whitespaces)
-    }
-
-    private func matches(contact: Contact, query: String) -> Bool {
-        if contact.displayName.localizedCaseInsensitiveContains(query) {
-            return true
+        .refreshable {
+            await store.load()
         }
-        guard isPhoneNumber(query: query) else {
-            return false
-        }
-        let queryDigits = query.filter(\.isWholeNumber)
-        return contact.phoneNumbers.contains { $0.value.filter(\.isWholeNumber).contains(queryDigits) }
-    }
-
-    private func isPhoneNumber(query: String) -> Bool {
-        query.contains(where: \.isWholeNumber) &&
-            query.allSatisfy { $0.isWholeNumber || "+-(). ".contains($0) }
     }
 
 }
