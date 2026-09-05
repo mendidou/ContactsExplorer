@@ -28,16 +28,13 @@ final class ContactsStore {
 
     private(set) var contacts: [Contact]
     private(set) var state: LoadState
-    private(set) var favoriteIDs: Set<String>
 
     init(
         contacts: [Contact] = [],
-        state: LoadState = .idle,
-        favoriteIDs: Set<String> = FavoritesManager.load()
+        state: LoadState = .idle
     ) {
         self.contacts = contacts
         self.state = state
-        self.favoriteIDs = favoriteIDs
     }
 
     func load() async {
@@ -78,22 +75,6 @@ final class ContactsStore {
                 state = .failed
             }
         }
-    }
-
-    // The developer requested from me to make the favorite status stay
-    // consistent between the contacts list and the detail page, so I put the
-    // toggle here in the shared store instead of duplicating it in each view.
-    func toggleFavorite(_ contact: Contact) {
-        if favoriteIDs.contains(contact.id) {
-            favoriteIDs.remove(contact.id)
-        } else {
-            favoriteIDs.insert(contact.id)
-        }
-        FavoritesManager.save(favoriteIDs)
-    }
-
-    func isFavorite(_ contact: Contact) -> Bool {
-        favoriteIDs.contains(contact.id)
     }
 
     private func requestAccessIfNeeded() async throws -> Bool {

@@ -13,7 +13,7 @@ private let logger = Logger(subsystem: "com.shaibalassiano.ContactsExplorer", ca
 
 struct ContactDetailView: View {
     let contact: Contact
-    let store: ContactsStore
+    let favorites: FavoritesManager
     @State private var fullImageData: Data?
 
     var body: some View {
@@ -98,7 +98,7 @@ struct ContactDetailView: View {
     }
 
     private var favoriteButton: some View {
-        FavoriteButton(isFavorite: store.isFavorite(contact), action: { store.toggleFavorite(contact) })
+        FavoriteButton(isFavorite: favorites.contains(contact.id), action: { favorites.toggle(contact.id) })
     }
 
     // TODO: consider moving this into a manager
@@ -112,22 +112,5 @@ struct ContactDetailView: View {
         } catch {
             logger.error("Loading contact image failed: \(String(describing: error))")
         }
-    }
-}
-
-struct FavoritesManager {
-    private enum Key: String {
-        case favoriteContactIDs
-    }
-
-    private init() {}
-
-    static func load() -> Set<String> {
-        let ids = UserDefaults.standard.stringArray(forKey: Key.favoriteContactIDs.rawValue) ?? []
-        return Set(ids)
-    }
-
-    static func save(_ ids: Set<String>) {
-        UserDefaults.standard.set(Array(ids), forKey: Key.favoriteContactIDs.rawValue)
     }
 }

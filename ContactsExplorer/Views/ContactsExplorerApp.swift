@@ -9,9 +9,11 @@ import SwiftUI
 
 @main
 struct ContactsExplorerApp: App {
+    @State private var favorites = FavoritesManager()
+
     var body: some Scene {
         WindowGroup {
-            ContactsListView()
+            ContactsListView(favorites: favorites)
         }
     }
 }

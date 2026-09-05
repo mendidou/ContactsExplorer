@@ -14,7 +14,10 @@ struct ContactsListView: View {
     @State private var path: [Contact] = []
     @State private var searchText = ""
 
-    init(store: ContactsStore = ContactsStore()) {
+    private let favorites: FavoritesManager
+
+    init(favorites: FavoritesManager, store: ContactsStore = ContactsStore()) {
+        self.favorites = favorites
         _store = State(wrappedValue: store)
     }
 
@@ -23,7 +26,7 @@ struct ContactsListView: View {
             content
                 .navigationTitle("Contacts")
                 .navigationDestination(for: Contact.self) { contact in
-                    ContactDetailView(contact: contact, store: store)
+                    ContactDetailView(contact: contact, favorites: favorites)
                 }
         }
         .task {
@@ -63,8 +66,8 @@ struct ContactsListView: View {
                 } label: {
                     ContactRow(
                         contact: contact,
-                        isFavorite: store.isFavorite(contact),
-                        onToggleFavorite: { store.toggleFavorite(contact) }
+                        isFavorite: favorites.contains(contact.id),
+                        onToggleFavorite: { favorites.toggle(contact.id) }
                     )
                 }
                 .buttonStyle(.plain)
