@@ -12,11 +12,9 @@ struct ContactsListView: View {
     @State private var path: [Contact] = []
 
     private let favorites: FavoritesManager
-    private let service: ContactsService
 
     init(favorites: FavoritesManager, service: ContactsService) {
         self.favorites = favorites
-        self.service = service
         _viewModel = State(wrappedValue: ContactsListViewModel(service: service))
     }
 
@@ -25,8 +23,9 @@ struct ContactsListView: View {
             content
                 .navigationTitle("Contacts")
                 .navigationDestination(for: Contact.self) { contact in
-                    ContactDetailView(contact: contact, favorites: favorites, service: service)
+                    ContactDetailView(contact: contact, favorites: favorites, service: viewModel.contactsService)
                 }
+                .debugMenu(for: viewModel)
         }
         .task {
             guard viewModel.loadState == .idle else { return }
@@ -74,6 +73,9 @@ struct ContactsListView: View {
         }
         .refreshable {
             await viewModel.load()
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            LimitedAccessBanner { await viewModel.load() }
         }
     }
 

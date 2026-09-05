@@ -27,7 +27,7 @@ extension FavoritesStorage {
 /// same instance for the star to stay in sync.
 @Observable
 final class FavoritesManager {
-    private(set) var ids: Set<String>
+    private var ids: Set<String>
 
     private let storage: FavoritesStorage
 

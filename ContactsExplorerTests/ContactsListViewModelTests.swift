@@ -21,13 +21,13 @@ private extension ContactsService {
 struct ContactsListViewModelLoadingTests {
     @Test("Starts idle and ends loaded")
     func loadsContacts() async {
-        let viewModel = ContactsListViewModel(service: .returning(MockGenerator.contacts()))
+        let viewModel = ContactsListViewModel(service: .returning(MockContacts.fixtures()))
         #expect(viewModel.loadState == .idle)
 
         await viewModel.load()
 
         #expect(viewModel.loadState == .loaded)
-        #expect(viewModel.contacts.count == MockGenerator.contacts().count)
+        #expect(viewModel.contacts.count == MockContacts.fixtures().count)
     }
 
     @Test("A denied authorization is not a failure")
@@ -55,7 +55,7 @@ struct ContactsListViewModelLoadingTests {
         struct Boom: Error {}
         let viewModel = ContactsListViewModel(
             service: .failing(with: Boom()),
-            contacts: MockGenerator.contacts(),
+            contacts: MockContacts.fixtures(),
             loadState: .loaded
         )
 
@@ -71,7 +71,7 @@ struct ContactsListViewModelSearchTests {
     private func loadedViewModel() -> ContactsListViewModel {
         ContactsListViewModel(
             service: .returning([]),
-            contacts: MockGenerator.contacts(),
+            contacts: MockContacts.fixtures(),
             loadState: .loaded
         )
     }
@@ -79,7 +79,7 @@ struct ContactsListViewModelSearchTests {
     @Test("An empty query returns everything")
     func emptyQuery() {
         let viewModel = loadedViewModel()
-        #expect(viewModel.filteredContacts.count == MockGenerator.contacts().count)
+        #expect(viewModel.filteredContacts.count == MockContacts.fixtures().count)
         #expect(viewModel.isSearchActive == false)
     }
 
@@ -87,7 +87,7 @@ struct ContactsListViewModelSearchTests {
     func whitespaceOnly() {
         let viewModel = loadedViewModel()
         viewModel.searchText = "   "
-        #expect(viewModel.filteredContacts.count == MockGenerator.contacts().count)
+        #expect(viewModel.filteredContacts.count == MockContacts.fixtures().count)
         #expect(viewModel.isSearchActive == false)
     }
 

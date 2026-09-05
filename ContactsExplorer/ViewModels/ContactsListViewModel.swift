@@ -23,14 +23,16 @@ final class ContactsListViewModel {
 
     var searchText = ""
 
-    private let service: ContactsService
+    /// Read by the detail screen rather than copied into it: the debug menu swaps this at
+    /// runtime, and a copy would go on querying the real address book after the swap.
+    private(set) var contactsService: ContactsService
 
     init(
         service: ContactsService,
         contacts: [Contact] = [],
         loadState: LoadState = .idle
     ) {
-        self.service = service
+        self.contactsService = service
         self.contacts = contacts
         self.loadState = loadState
     }
@@ -40,7 +42,7 @@ final class ContactsListViewModel {
             loadState = .loading
         }
         do {
-            contacts = try await service.fetchContacts()
+            contacts = try await contactsService.fetchContacts()
             loadState = .loaded
         } catch ContactsAccessError.denied {
             loadState = .permissionDenied
@@ -82,3 +84,14 @@ final class ContactsListViewModel {
             query.allSatisfy { $0.isWholeNumber || "+-(). ".contains($0) }
     }
 }
+
+#if DEBUG
+/// Kept in the same file because `contactsService` is `private(set)`: only this file may write it.
+extension ContactsListViewModel {
+    func useService(_ service: ContactsService) async {
+        contactsService = service
+        contacts = []
+        await load()
+    }
+}
+#endif

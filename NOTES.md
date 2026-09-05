@@ -33,6 +33,17 @@ refactoring, so it is the one dependency I drew explicitly.
 **Structure.** `Contact` was in `Utils/`. It is the only domain model in the project, so it
 moved to `Models/`. `Utils/` is a folder that names a filing failure rather than a layer.
 
+`ContactsStore` sat in `Views/` and was named for a pattern rather than a job: it holds one
+screen's state, so it is now `ContactsListViewModel` in `ViewModels/`. Nothing under `Views/`
+holds state any more. Five folders — `Models`, `Services`, `ViewModels`, `Views`, `Mocks` —
+and no repository, no coordinator, no protocol per service. At this size each of those would
+be an abstraction to defend rather than one that pays.
+
+**A granted-but-empty address book used to render a blank screen.** Permission granted, zero
+contacts, and nothing on screen to say which of the two had happened. It is now a case in the
+same switch as the others — `case .loaded where contacts.isEmpty` — so the state is named
+where every other state is named, without a flag to keep in sync.
+
 **View decomposition.** Sections written as `private var section: some View` share their
 parent's invalidation boundary — they reorganise code without reducing update cost. I turned
 into view types the ones whose inputs are genuinely narrower than the parent's, and left the
@@ -42,7 +53,7 @@ files. Nothing that only one screen uses was promoted to a shared component.
 
 **Search.** Four things, in one place. The filter, the trimming and the phone predicate lived
 in `ContactsListView` as thirty lines of view code that no test could reach; they now sit in
-`ContactsStore` next to the contacts they filter. The hand-rolled bar became `.searchable`,
+`ContactsListViewModel` next to the contacts they filter. The hand-rolled bar became `.searchable`,
 which is what supplies the clear button, the cancel button and the `searchField` trait the
 `TextField` never had — autocorrection and autocapitalisation are off, since a search over
 proper nouns is the one field where the keyboard should not guess. Name matching moved from
@@ -61,15 +72,46 @@ hand-rolled field to preserve a habit.
 **Tests.** The project arrived with one, asserting that a memberwise initialiser assigns its
 parameters. It could not fail. What the brief actually names — the list after permission, the
 filter by name or phone, the favourite that survives a relaunch — was untested because none
-of it was reachable: the store built its own `CNContactStore`, and favourites wrote straight
-to `UserDefaults`. Both now take their dependency as a value, so a test can supply contacts
-or a failing fetch without a device and without touching real user defaults. Sixteen tests
-cover the four load states including a failed reload with contacts already on screen, the
-search paths, and the fact that every favourite toggle is written out rather than only held
-in memory.
+of it was reachable: the view model built its own `CNContactStore`, and favourites wrote
+straight to `UserDefaults`. Both now take their dependency as a value, so a test can supply
+contacts or a failing fetch without a device and without touching real user defaults.
+Eighteen tests cover the load states including a failed reload with contacts already on
+screen, the search paths, and the fact that every favourite toggle is written out rather than
+only held in memory.
 
 The seam is deliberately thin — closures, not protocols. A protocol per service plus a mock
 per protocol would be more ceremony to defend than the two initialisers it replaces.
+
+**A debug menu, because seven contacts prove nothing.** The simulator's address book holds
+seven entries, none accented, none organisation-only. Nothing I could verify on it told me how
+the list behaves at a realistic size. A ladybug menu in the toolbar — `#if DEBUG`, three items
+— serves generated contacts in place of the real ones: add a hundred, empty the list, go back.
+
+It works through the same seam the tests use. `ContactsService` is a struct of closures, so
+the menu hands the view model a different one; the list then goes through the same `load()`,
+the same filter, the same `List`, and the mock data survives a pull-to-refresh exactly as real
+data would. Writing into the real address book was the first version and I deleted it: it
+needed write access, a containment group and selective deletion, and a button that calls
+`delete()` on someone's contacts is a loaded gun the day the app runs on a phone.
+
+The generated data is chosen to attack the open findings rather than to look plausible —
+accented names against the diacritic search, four phone formats against the number filter,
+ten percent organisation-only against `displayName`, and birthdays with no year, which
+reproduce the year-1 bug on demand.
+
+Two things came out of building it. Wiring the photo path revealed that `ContactDetailView`
+was still being handed the *live* service while the list had switched to the mock, so the
+detail screen queried the real `CNContactStore` with an invented identifier — visible only in
+the runtime log, never on screen. The fix is better production code regardless of debug: the
+service now has one owner, the view model, and the view no longer keeps its own copy to
+diverge from. And folding the old `MockGenerator` into this generator put every fixture behind
+`#if DEBUG`, which a Release build confirms: mock data no longer ships in the binary.
+
+Two of those tests are worth singling out. The diacritic one is backed by a fixture named
+`Jérôme Müller` and was checked by mutation: putting `localizedCaseInsensitiveContains` back
+makes it fail, and only it. A test that passes with the bug in place is not a test. The other
+asserts that `muller jerome` finds *nothing* — it pins a known limitation rather than a wanted
+behaviour, and it is meant to break the day someone moves to per-word matching.
 
 ## What I deliberately left alone
 
@@ -79,10 +121,17 @@ tapping the star toggles the favourite and does not navigate; tapping anywhere e
 navigates. The code is correct. Changing it would have been a refactor of working code with
 no defensible reason.
 
-**Four computed view properties.** `content` is a `switch` over the load state — extracting
-it would create a type that receives everything the parent has in order to re-emit the same
-switch. `contactsList`, `initialsAvatar`: same reasoning, no narrower inputs, or too small
-to justify a type.
+**The remaining computed view properties.** `content` is a `switch` over the load state —
+extracting it would create a type that receives everything the parent has in order to re-emit
+the same switch. `contactsList` and `initialsAvatar`: same reasoning, no narrower inputs, or
+too small to justify a type.
+
+**No `ContactDetailViewModel`.** The list screen has a view model and the detail screen does
+not, which looks like an inconsistency and is worth saying out loud. The detail screen owns
+one piece of state — the full-size photo — and makes one call to get it. A view model there
+would be a type whose entire content is that `@State` and that `await`, added to make a folder
+look symmetrical. The list earned one because it holds load state, search text and a filter
+that needed to become testable; the detail holds none of that.
 
 **Phone search does not normalise country codes.** A contact stored as `06 12 34 56 78` is
 not found by typing `+33612345678`. The predicate reduces both sides to digits and asks
@@ -163,13 +212,10 @@ have; a proper "manage shared contacts" flow is a design and API question.
    That breaks SwiftUI's ability to skip unchanged subviews, and it means the
    `NavigationStack` path no longer matches its contact after a pull-to-refresh. This is the
    root cause behind several smaller symptoms, so it goes first.
-2. **A granted-but-empty address book renders a blank list.** No contacts and no permission
-   problem is a state the app does not name.
-3. **Birthdays without a year render as year 1.** `CNContact.birthday` is a `DateComponents`
+2. **Birthdays without a year render as year 1.** `CNContact.birthday` is a `DateComponents`
    whose `year` is often nil, and `Calendar.date(from:)` fills it with 1.
-4. **Touch targets.** The star measures 22×20 pt in the list and 32×36 pt in the detail
+3. **Touch targets.** The star measures 22×20 pt in the list and 32×36 pt in the detail
    toolbar, against Apple's 44×44 minimum.
-5. **`MockGenerator` is in the app target**, so preview fixtures ship in the release binary.
 
 ## Verification
 
@@ -178,18 +224,20 @@ iOS 26.5: navigation, favourite toggling from both screens, favourite sync betwe
 persistence across a relaunch, search by name, search by phone number with a space, and the
 permission-denied screen. `docs/UI-FINDINGS.md` marks anything I could not trigger.
 
-Three claims rest on weaker evidence, and I would rather say so than let the list above cover
+Two claims rest on weaker evidence, and I would rather say so than let the list above cover
 them.
 
-The diacritic fix was verified by comparing both comparators directly —
-`localizedCaseInsensitiveContains` fails on `jerome`/`Jérôme`, `muller`/`Müller`,
-`noel`/`Noël` where `localizedStandardContains` succeeds, with no ASCII regression and no
-false positive. It is not covered by a test and was not seen on screen, because neither
-`MockGenerator` nor the simulator's address book holds an accented name. Adding one fixture
-would close this, and it is the first thing I would write next.
+Both of those gaps have since closed, and the debug menu is what closed them. Seeding a
+hundred generated contacts puts accented names in the address book, so typing `muller` into
+the running app now returns seven `Müller` rows on screen — the diacritic fix is no longer
+resting on a green suite alone. Typing `9829` returns exactly the one contact whose number
+ends in it, and a query matching nothing shows `ContentUnavailableView.search`.
 
-The disabled autocorrection is in the code and unverified by hand: I could not give focus to
-the iOS 26 search field through UI automation, so I never typed into it.
+That also means I finally typed into the iOS 26 search field, which earlier I could not focus
+through UI automation. The field sits at the bottom of the screen, and a touch with a short
+delay takes focus where a longer one opens the Paste menu. Autocorrection stayed out of the
+way on `muller`, `9829` and the accented names — that is observation, not a test, but it is
+more than the nothing this paragraph used to admit to.
 
 The timings quoted earlier come from a standalone benchmark on an Apple Silicon Mac, not from
 Instruments on device; a phone is slower, so treat them as ratios rather than absolutes.
