@@ -30,14 +30,14 @@ struct ContactsListView: View {
                 }
         }
         .task {
-            guard store.state == .idle else { return }
+            guard store.loadState == .idle else { return }
             await store.load()
         }
     }
 
     @ViewBuilder
     private var content: some View {
-        switch store.state {
+        switch store.loadState {
         case .idle, .loading:
             ProgressView("Loading Contacts…")
         case .permissionDenied:

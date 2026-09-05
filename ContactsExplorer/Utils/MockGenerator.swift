@@ -108,9 +108,9 @@ struct MockGenerator {
 
     static func store(
         contacts: [Contact] = MockGenerator.contacts(),
-        state: ContactsStore.LoadState = .loaded
+        loadState: ContactsStore.LoadState = .loaded
     ) -> ContactsStore {
-        ContactsStore(service: ContactsService(), contacts: contacts, state: state)
+        ContactsStore(service: ContactsService(), contacts: contacts, loadState: loadState)
     }
 
     static func date(year: Int, month: Int, day: Int) -> Date? {

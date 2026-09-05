@@ -19,33 +19,33 @@ final class ContactsStore {
     }
 
     private(set) var contacts: [Contact]
-    private(set) var state: LoadState
+    private(set) var loadState: LoadState
 
     private let service: ContactsService
 
     init(
         service: ContactsService,
         contacts: [Contact] = [],
-        state: LoadState = .idle
+        loadState: LoadState = .idle
     ) {
         self.service = service
         self.contacts = contacts
-        self.state = state
+        self.loadState = loadState
     }
 
     func load() async {
         if contacts.isEmpty {
-            state = .loading
+            loadState = .loading
         }
         do {
             contacts = try await service.fetchContacts()
-            state = .loaded
+            loadState = .loaded
         } catch ContactsAccessError.denied {
-            state = .permissionDenied
+            loadState = .permissionDenied
         } catch {
             Logger.contacts.error("Loading contacts failed: \(String(describing: error))")
             if contacts.isEmpty {
-                state = .failed
+                loadState = .failed
             }
         }
     }
