@@ -58,6 +58,18 @@ struct MockGenerator {
                 birthday: date(year: 1990, month: 3, day: 14),
                 thumbnailData: nil
             ),
+            // Diacritics on both names: the search must find this one from plain ASCII.
+            Contact(
+                id: "contact-jerome",
+                givenName: "Jérôme",
+                familyName: "Müller",
+                fullName: "Jérôme Müller",
+                organizationName: "",
+                phoneNumbers: [Contact.LabeledValue(label: "mobile", value: "04-987-6543")],
+                emails: [Contact.LabeledValue(label: "work", value: "jerome.muller@example.com")],
+                birthday: date(year: 1979, month: 7, day: 22),
+                thumbnailData: nil
+            ),
             bareContact(),
             Contact(
                 id: "contact-noah",

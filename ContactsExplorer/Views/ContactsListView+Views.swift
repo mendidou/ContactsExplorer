@@ -53,8 +53,6 @@ extension ContactsListView {
         }
     }
 
-    // No action button: nothing the user can do from here fixes an empty address book,
-    // and a "Try Again" that reloads the same empty result would be a lie.
     struct EmptyAddressBookView: View {
         var body: some View {
             ContentUnavailableView {

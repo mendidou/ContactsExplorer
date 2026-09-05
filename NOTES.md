@@ -58,6 +58,19 @@ One consequence to know about: on iOS 26 the system, not the app, decides where 
 is the price of adopting the system component, and I would rather pay it than keep a
 hand-rolled field to preserve a habit.
 
+**Tests.** The project arrived with one, asserting that a memberwise initialiser assigns its
+parameters. It could not fail. What the brief actually names — the list after permission, the
+filter by name or phone, the favourite that survives a relaunch — was untested because none
+of it was reachable: the store built its own `CNContactStore`, and favourites wrote straight
+to `UserDefaults`. Both now take their dependency as a value, so a test can supply contacts
+or a failing fetch without a device and without touching real user defaults. Sixteen tests
+cover the four load states including a failed reload with contacts already on screen, the
+search paths, and the fact that every favourite toggle is written out rather than only held
+in memory.
+
+The seam is deliberately thin — closures, not protocols. A protocol per service plus a mock
+per protocol would be more ceremony to defend than the two initialisers it replaces.
+
 ## What I deliberately left alone
 
 **The star nested inside the row button.** Reading the code, this looked like a hit-test
@@ -150,17 +163,13 @@ have; a proper "manage shared contacts" flow is a design and API question.
    That breaks SwiftUI's ability to skip unchanged subviews, and it means the
    `NavigationStack` path no longer matches its contact after a pull-to-refresh. This is the
    root cause behind several smaller symptoms, so it goes first.
-2. **Test the search.** Filtering by name or phone number is the one behaviour the brief
-   names, the logic now lives in `ContactsStore` where a test can reach it, and it has none.
-   Name, diacritics, phone with separators, and the international gap above as a failing
-   case that documents the limit.
-3. **A granted-but-empty address book renders a blank list.** No contacts and no permission
+2. **A granted-but-empty address book renders a blank list.** No contacts and no permission
    problem is a state the app does not name.
-4. **Birthdays without a year render as year 1.** `CNContact.birthday` is a `DateComponents`
+3. **Birthdays without a year render as year 1.** `CNContact.birthday` is a `DateComponents`
    whose `year` is often nil, and `Calendar.date(from:)` fills it with 1.
-5. **Touch targets.** The star measures 22×20 pt in the list and 32×36 pt in the detail
+4. **Touch targets.** The star measures 22×20 pt in the list and 32×36 pt in the detail
    toolbar, against Apple's 44×44 minimum.
-6. **`MockGenerator` is in the app target**, so preview fixtures ship in the release binary.
+5. **`MockGenerator` is in the app target**, so preview fixtures ship in the release binary.
 
 ## Verification
 
@@ -169,12 +178,18 @@ iOS 26.5: navigation, favourite toggling from both screens, favourite sync betwe
 persistence across a relaunch, search by name, search by phone number with a space, and the
 permission-denied screen. `docs/UI-FINDINGS.md` marks anything I could not trigger.
 
-Two claims about the search rest on weaker evidence, and I would rather say so than let the
-list above cover them. The diacritic fix was verified by comparing both comparators directly
-— `localizedCaseInsensitiveContains` fails on `jerome`/`Jérôme`, `muller`/`Müller`,
+Three claims rest on weaker evidence, and I would rather say so than let the list above cover
+them.
+
+The diacritic fix was verified by comparing both comparators directly —
+`localizedCaseInsensitiveContains` fails on `jerome`/`Jérôme`, `muller`/`Müller`,
 `noel`/`Noël` where `localizedStandardContains` succeeds, with no ASCII regression and no
-false positive — but not end to end, because the simulator's address book contains no
-accented name. And the disabled autocorrection is in the code and unverified by hand: I could
-not give focus to the iOS 26 search field through UI automation, so I have not typed into it.
+false positive. It is not covered by a test and was not seen on screen, because neither
+`MockGenerator` nor the simulator's address book holds an accented name. Adding one fixture
+would close this, and it is the first thing I would write next.
+
+The disabled autocorrection is in the code and unverified by hand: I could not give focus to
+the iOS 26 search field through UI automation, so I never typed into it.
+
 The timings quoted earlier come from a standalone benchmark on an Apple Silicon Mac, not from
 Instruments on device; a phone is slower, so treat them as ratios rather than absolutes.
