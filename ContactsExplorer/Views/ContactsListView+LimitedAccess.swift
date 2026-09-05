@@ -18,6 +18,12 @@ extension ContactsListView {
     /// never has to leave the app for Settings. It reports the identifiers it added, which
     /// is the signal to reload — the fetch itself still returns whatever the system decides
     /// we may see.
+    ///
+    /// Measured on iOS 26.5 in the simulator: confirming a new selection terminates the app
+    /// (no crash report, same behaviour as any other TCC change), so `onSelectionChanged`
+    /// never runs there — the next launch picks up the wider selection instead. The reload
+    /// is kept because it is the documented contract of the completion handler and the
+    /// termination was not verified on a device; if it holds there too, this is dead code.
     struct LimitedAccessBanner: View {
         let onSelectionChanged: () async -> Void
 
