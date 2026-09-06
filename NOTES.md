@@ -26,6 +26,22 @@ so I changed it.
 simple and fast to fix — the filter was being evaluated twice per keystroke, and the matching
 was case-insensitive but not diacritic-insensitive, so `jerome` did not find `Jérôme`.
 
+I also replaced the hand-rolled search bar with `.searchable`. Whenever the system already
+provides the component, I would rather use it than keep a custom one — here it is what brings
+the clear button, the cancel button and the search field accessibility trait that the plain
+`TextField` never had, and `ContentUnavailableView.search` for a query that matches nothing.
+
+**Empty states.** Permission granted with an empty address book rendered a blank screen, with
+nothing to tell the user which of the two had happened. It is now a case in the same switch as
+the other states.
+
+**Limited contacts access.** Since iOS 18 the user can share only part of their address book,
+and the app was presenting that partial list as if it were the whole thing. There is now a
+banner in that case, with the system `contactAccessPicker` behind a Manage button so the
+selection can be widened without leaving for Settings. The picker does not add contacts to the
+address book — it changes how many of them this app is allowed to see. It is a recent API and
+I wanted to use it rather than send the user to Settings.
+
 **Closures instead of protocols.** `ContactsService` and `FavoritesStorage` are structs of
 closures, not protocols with a mock implementation each. For a project this size it is
 arguably more than it needs, but I find it more elegant than a protocol per service, and it is
