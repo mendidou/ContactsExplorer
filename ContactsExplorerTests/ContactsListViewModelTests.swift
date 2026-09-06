@@ -105,8 +105,6 @@ struct ContactsListViewModelSearchTests {
         #expect(viewModel.filteredContacts.map(\.displayName) == ["Jérôme Müller"])
     }
 
-    /// The name test is a substring search, so it holds the word order. Pinned here because
-    /// the fix for it is a product decision, not an oversight.
     @Test("Does not match a name whose words are reversed")
     func doesNotMatchReversedWords() {
         let viewModel = loadedViewModel()

@@ -7,9 +7,10 @@ import Foundation
 import Testing
 @testable import ContactsExplorer
 
-/// Stands in for UserDefaults. `saved` records what was written, so the tests can check
-/// that a change is persisted rather than only held in memory.
-private nonisolated final class StorageSpy: @unchecked Sendable {
+/// Stands in for UserDefaults. `saved` keeps every write, so a test can tell a change that
+/// was persisted from one that was only held in memory — which is the whole point of the
+/// favorites surviving a relaunch.
+private nonisolated final class TestStorage: @unchecked Sendable {
     private(set) var saved: [Set<String>] = []
     private var current: Set<String>
 
@@ -32,8 +33,8 @@ private nonisolated final class StorageSpy: @unchecked Sendable {
 struct FavoritesManagerTests {
     @Test("Reads what was already stored")
     func loadsExistingIDs() {
-        let spy = StorageSpy(initial: ["contact-emma"])
-        let favoritesManager = FavoritesManager(storage: spy.storage)
+        let testStorage = TestStorage(initial: ["contact-emma"])
+        let favoritesManager = FavoritesManager(storage: testStorage.storage)
 
         #expect(favoritesManager.contains("contact-emma"))
         #expect(favoritesManager.contains("contact-james") == false)
@@ -41,7 +42,7 @@ struct FavoritesManagerTests {
 
     @Test("Toggling adds, then removes")
     func toggleAddsThenRemoves() {
-        let favoritesManager = FavoritesManager(storage: StorageSpy().storage)
+        let favoritesManager = FavoritesManager(storage: TestStorage().storage)
 
         favoritesManager.toggle("contact-emma")
         #expect(favoritesManager.contains("contact-emma"))
@@ -52,23 +53,23 @@ struct FavoritesManagerTests {
 
     @Test("Every toggle is written out, so nothing is lost on relaunch")
     func everyToggleIsPersisted() {
-        let spy = StorageSpy()
-        let favoritesManager = FavoritesManager(storage: spy.storage)
+        let testStorage = TestStorage()
+        let favoritesManager = FavoritesManager(storage: testStorage.storage)
 
         favoritesManager.toggle("contact-emma")
         favoritesManager.toggle("contact-james")
         favoritesManager.toggle("contact-emma")
 
-        #expect(spy.saved.count == 3)
-        #expect(spy.saved.last == ["contact-james"])
+        #expect(testStorage.saved.count == 3)
+        #expect(testStorage.saved.last == ["contact-james"])
     }
 
     @Test("A second instance sees what the first one saved")
     func survivesANewInstance() {
-        let spy = StorageSpy()
-        FavoritesManager(storage: spy.storage).toggle("contact-emma")
+        let testStorage = TestStorage()
+        FavoritesManager(storage: testStorage.storage).toggle("contact-emma")
 
-        let reopened = FavoritesManager(storage: spy.storage)
+        let reopened = FavoritesManager(storage: testStorage.storage)
 
         #expect(reopened.contains("contact-emma"))
     }

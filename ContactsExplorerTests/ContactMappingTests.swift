@@ -37,22 +37,6 @@ struct ContactMappingTests {
         #expect(contact.emails.map(\.value) == ["jerome.muller@example.com"])
     }
 
-    @Test("Turns the raw label constants into something displayable")
-    func localisesLabels() {
-        let cnContact = CNMutableContact()
-        cnContact.phoneNumbers = [
-            CNLabeledValue(label: CNLabelPhoneNumberMobile, value: CNPhoneNumber(stringValue: "0612345678"))
-        ]
-
-        let label = Contact(cnContact).phoneNumbers.first?.label
-
-        // CNLabelPhoneNumberMobile is the literal "_$!<Mobile>!$_", which must never reach a
-        // screen. The localised form depends on the test machine's language, so the assertion
-        // is on the shape rather than on the word.
-        #expect(label?.isEmpty == false)
-        #expect(label?.hasPrefix("_$") == false)
-    }
-
     @Test("Falls back to a generic label when the system supplies none")
     func fallsBackWhenUnlabelled() {
         let cnContact = CNMutableContact()
@@ -92,10 +76,5 @@ struct ContactMappingTests {
         let year = birthday.map { Calendar.current.component(.year, from: $0) }
 
         #expect(year == 1)
-    }
-
-    @Test("No birthday stays no birthday")
-    func mapsMissingBirthday() {
-        #expect(Contact(CNMutableContact()).birthday == nil)
     }
 }

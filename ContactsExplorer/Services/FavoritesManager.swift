@@ -23,8 +23,7 @@ extension FavoritesStorage {
     )
 }
 
-/// Stays a class: it holds state the screens observe, and both of them must see the
-/// same instance for the star to stay in sync.
+
 @Observable
 final class FavoritesManager {
     private var ids: Set<String>

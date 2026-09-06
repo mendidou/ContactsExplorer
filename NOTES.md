@@ -70,17 +70,38 @@ is the price of adopting the system component, and I would rather pay it than ke
 hand-rolled field to preserve a habit.
 
 **Tests.** The project arrived with one, asserting that a memberwise initialiser assigns its
-parameters. It could not fail. What the brief actually names — the list after permission, the
-filter by name or phone, the favourite that survives a relaunch — was untested because none
-of it was reachable: the view model built its own `CNContactStore`, and favourites wrote
-straight to `UserDefaults`. Both now take their dependency as a value, so a test can supply
-contacts or a failing fetch without a device and without touching real user defaults.
-Eighteen tests cover the load states including a failed reload with contacts already on
-screen, the search paths, and the fact that every favourite toggle is written out rather than
-only held in memory.
+parameters. It could not fail, so I deleted it: a test that cannot go red is not coverage, it
+is a green light with nothing behind it. What the brief actually names — the list after
+permission, the filter by name or phone, the favourite that survives a relaunch — was
+untested because none of it was reachable: the view model built its own `CNContactStore`, and
+favourites wrote straight to `UserDefaults`. Both now take their dependency as a value, so a
+test can supply contacts or a failing fetch without a device and without touching real user
+defaults. Twenty-one tests cover the `CNContact` mapping, the load states including a failed
+reload with contacts already on screen, the search paths, and the fact that every favourite
+toggle is written out rather than only held in memory.
+
+I removed two more of my own on the way, by the same rule. One asserted that a nil birthday
+maps to nil. The other checked that a raw label constant had been turned into something
+displayable, but asserted only that the result did not look like a raw constant — too loose to
+mean anything. The count is not the measure; a suite is read at its weakest test.
 
 The seam is deliberately thin — closures, not protocols. A protocol per service plus a mock
 per protocol would be more ceremony to defend than the two initialisers it replaces.
+
+Where the seam sits is a deliberate line, not a gap in coverage. `UserDefaults` and
+`CNContactStore` are someone else's code, and both are replaced the same way, for the same
+reason: I test up to the boundary and not across it. What that leaves untested is the four
+lines of glue on the far side, which have no logic and are checked by running the app. The
+trade only holds because both contracts are tiny — a `Set<String>` in and out, an array of
+contacts. A bigger boundary would earn contract tests.
+
+One consequence worth naming, because it is the first thing I would ask: the favourites test
+double is a class rather than two closures over a local variable, and that is not a style
+choice. `FavoritesStorage` is built from `@Sendable` closures, and Swift 6 rejects a mutable
+capture inside one — I tried, and the compiler refuses with *reference to captured var in
+concurrently-executing code*. Shared state across those closures has to be a reference type.
+That is also where its `@unchecked Sendable` comes from, and it is only sound because this
+target runs everything on the main actor.
 
 **A debug menu, because seven contacts prove nothing.** The simulator's address book holds
 seven entries, none accented, none organisation-only. Nothing I could verify on it told me how

@@ -13,7 +13,6 @@ enum MockContacts {
 
     // MARK: - Fixtures
 
-    /// Every field populated, including two phones, two emails, a birthday and a photo.
     private static func complete() -> Contact {
         Contact(
             id: "contact-emma",
@@ -49,8 +48,7 @@ enum MockContacts {
         )
     }
 
-    /// The set every screen is checked against: each entry is a shape that broke something
-    /// once — no family name, organization instead of a name, no name at all, diacritics.
+
     static func fixtures() -> [Contact] {
         [
             complete(),
@@ -126,10 +124,6 @@ enum MockContacts {
     }
 
     // MARK: - Volume
-
-    /// The full-size photos live beside the contacts rather than inside them, because that is
-    /// how the real service hands them over: `Contact` only ever carries the thumbnail, and
-    /// the big one is fetched by id on the detail screen.
     struct Batch: Sendable {
         var contacts: [Contact] = []
         var fullImages: [String: Data] = [:]
