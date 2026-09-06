@@ -26,10 +26,10 @@ so I changed it.
 simple and fast to fix — the filter was being evaluated twice per keystroke, and the matching
 was case-insensitive but not diacritic-insensitive, so `jerome` did not find `Jérôme`.
 
-**Closures instead of protocols.** This is the choice I most wanted to show. `ContactsService`
-and `FavoritesStorage` are structs of closures, not protocols with a mock implementation each.
-For a project this size it is arguably more than it needs, but I find it more elegant than a
-protocol per service, and it is close to what TCA does, which is what I am used to.
+**Closures instead of protocols.** `ContactsService` and `FavoritesStorage` are structs of
+closures, not protocols with a mock implementation each. For a project this size it is
+arguably more than it needs, but I find it more elegant than a protocol per service, and it is
+close to what TCA does, which is what I am used to.
 
 **Mocks.** I added a mock generator and a small debug menu so the app can be filled with
 generated contacts on demand. Seven contacts in the simulator are not enough to see how the
