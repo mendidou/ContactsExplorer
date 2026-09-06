@@ -38,9 +38,9 @@ extension ContactsListView {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(.thinMaterial)
-            .contactAccessPicker(isPresented: $isPresentingPicker) { addedIdentifiers in
+            .contactAccessPicker(isPresented: $isPresentingPicker) { @Sendable addedIdentifiers in
                 guard !addedIdentifiers.isEmpty else { return }
-                Task { await onSelectionChanged() }
+                Task { @MainActor in await onSelectionChanged() }
             }
         }
     }
