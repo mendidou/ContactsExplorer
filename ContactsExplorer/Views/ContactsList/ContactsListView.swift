@@ -21,6 +21,9 @@ struct ContactsListView: View {
     var body: some View {
         NavigationStack(path: $path) {
             content
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    LimitedAccessBanner { await viewModel.load() }
+                }
                 .navigationTitle("Contacts")
                 .navigationDestination(for: Contact.self) { contact in
                     ContactDetailView(contact: contact, favoritesManager: favoritesManager, service: viewModel.contactsService)
@@ -73,9 +76,6 @@ struct ContactsListView: View {
         }
         .refreshable {
             await viewModel.load()
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            LimitedAccessBanner { await viewModel.load() }
         }
     }
 
