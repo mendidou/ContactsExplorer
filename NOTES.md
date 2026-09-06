@@ -43,16 +43,3 @@ asserted that a memberwise initialiser assigns its parameters and could not fail
 
 **Commits.** I committed incrementally, one change at a time, to make the review easier to
 follow.
-
-## What I left alone, and would do next
-
-- `Contact.LabeledValue` holds a `let id = UUID()`, so two contacts built from the same system
-  contact are never equal. This is the root of a few smaller symptoms and would go first.
-- A birthday with no year renders as year 1. Fixing it properly means keeping the date
-  components rather than a `Date`, which touches the model and the detail screen.
-- The star is 22×20 pt in the list, against Apple's 44×44 minimum.
-- Phone search does not normalise country codes: a number stored as `06 12 34 56 78` is not
-  found by typing `+33612345678`. Doing it properly means E.164 normalisation, which means a
-  dependency I did not want to add here.
-- Limited contacts access is handled with a banner and the system picker, but the case where
-  the user shares zero contacts still shows the generic empty state.
