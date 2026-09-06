@@ -2,276 +2,57 @@
 
 ## How I worked
 
-I ran the app before reading it, then read it before changing it. The first pass produced
-`docs/UI-FINDINGS.md` — an audit where every claim is tagged by how I know it: seen on
-screen, read in the code, or not verified. That distinction turned out to matter (see
-"Where I was wrong").
+Not in one sitting — the work is spread over several short sessions. The first twenty minutes
+went to reading the instructions, running the app and using it like a user, before opening any
+code. Then I asked Claude to go through the codebase and point out anything obviously wrong,
+without changing a single line. I used that as a starting list, not as a to-do list.
 
-Then I fixed in this order: correctness first, ownership of state second, structure third,
-view decomposition last. Each step is its own commit with the reasoning in the message.
+All in, it took me about four and a half hours, so slightly over the four you asked for.
 
-## What I changed, and why
+## What I changed
 
-**The fetch was on the main thread.** `ContactsStore` carried a CHANGELOG saying
-`2026-08-18: added @concurrent so fetching doesn't block the main thread`. There was no
-`@concurrent` anywhere in the file, and with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`
-the whole `enumerateContacts` loop ran on the main actor. The comment described work that
-was never done. Contact loading now goes through a `ContactsService` that is genuinely off
-the main actor.
+**Structure.** I decided to move the project to MVVM and to break the screens into smaller
+views. The list screen now has a view model that owns its state, and `Views/` is grouped by
+screen rather than being one flat folder.
 
-I kept a comment in that service explaining why `CNContactStore` and `CNContactFetchRequest`
-can live inside a `@concurrent` function despite not being `Sendable` — they never escape
-it, so region isolation accepts them. Promoting either to a stored property would break it,
-and nothing in the code says so.
+**The fetch ran on the main thread.** I found this on the way and fixed it. With
+`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, the whole contact enumeration was running on the
+main actor. It now goes through a service that is genuinely off it.
 
-**Favorites had no owner.** The state lived in `ContactsStore`, but the persistence type
-was declared at the bottom of `ContactDetailView.swift`. Now a single `FavoritesManager` is
-created once in the app entry point and injected. That single instance is what keeps the
-star in sync between the list and the detail — the requirement most likely to break under
-refactoring, so it is the one dependency I drew explicitly.
+**`@Observable`.** I preferred moving to the newer API rather than keeping `ObservableObject`,
+so I changed it.
 
-**Structure.** `Contact` was in `Utils/`. It is the only domain model in the project, so it
-moved to `Models/`. `Utils/` is a folder that names a filing failure rather than a layer.
+**Search.** I looked quickly at what could be improved and fixed the repetitions that were
+simple and fast to fix — the filter was being evaluated twice per keystroke, and the matching
+was case-insensitive but not diacritic-insensitive, so `jerome` did not find `Jérôme`.
 
-`ContactsStore` sat in `Views/` and was named for a pattern rather than a job: it holds one
-screen's state, so it is now `ContactsListViewModel` in `ViewModels/`. Nothing under `Views/`
-holds state any more. Five folders — `Models`, `Services`, `ViewModels`, `Views`, `Mocks` —
-and no repository, no coordinator, no protocol per service. At this size each of those would
-be an abstraction to defend rather than one that pays.
+**Closures instead of protocols.** This is the choice I most wanted to show. `ContactsService`
+and `FavoritesStorage` are structs of closures, not protocols with a mock implementation each.
+For a project this size it is arguably more than it needs, but I find it more elegant than a
+protocol per service, and it is close to what TCA does, which is what I am used to.
 
-**A granted-but-empty address book used to render a blank screen.** Permission granted, zero
-contacts, and nothing on screen to say which of the two had happened. It is now a case in the
-same switch as the others — `case .loaded where contacts.isEmpty` — so the state is named
-where every other state is named, without a flag to keep in sync.
+**Mocks.** I added a mock generator and a small debug menu so the app can be filled with
+generated contacts on demand. Seven contacts in the simulator are not enough to see how the
+list and the search behave.
 
-**View decomposition.** Sections written as `private var section: some View` share their
-parent's invalidation boundary — they reorganise code without reducing update cost. I turned
-into view types the ones whose inputs are genuinely narrower than the parent's, and left the
-rest alone. `ContactAvatarView` and `FavoriteButton` were defined inside
-`ContactsListView.swift` while the detail screen also used them; they now have their own
-files. Nothing that only one screen uses was promoted to a shared component.
+**Tests.** I wrote tests for the essential parts of the app. I largely let Claude work on this
+part and paid less attention to naming there than elsewhere, but I wanted the tests to show
+the closure-based seams in use. I then reviewed every test one by one and removed the ones I
+did not think earned their place — including the one that came with the project, which
+asserted that a memberwise initialiser assigns its parameters and could not fail.
 
-**Search.** Four things, in one place. The filter, the trimming and the phone predicate lived
-in `ContactsListView` as thirty lines of view code that no test could reach; they now sit in
-`ContactsListViewModel` next to the contacts they filter. The hand-rolled bar became `.searchable`,
-which is what supplies the clear button, the cancel button and the `searchField` trait the
-`TextField` never had — autocorrection and autocapitalisation are off, since a search over
-proper nouns is the one field where the keyboard should not guess. Name matching moved from
-`localizedCaseInsensitiveContains` to `localizedStandardContains`, which folds diacritics as
-well as case, so `jerome` finds `Jérôme`. And `filteredContacts` is read into a local before
-the body uses it: it is a computed property, and the view read it twice per render — once for
-the list, once to decide whether to show the empty-search state — so the whole address book
-was filtered twice per keystroke.
+**Commits.** I committed incrementally, one change at a time, to make the review easier to
+follow.
 
-One consequence to know about: on iOS 26 the system, not the app, decides where a
-`.searchable` field sits, and on iPhone that is now the bottom of the screen. Passing
-`.navigationBarDrawer(displayMode: .always)` does not move it back. The bar changing position
-is the price of adopting the system component, and I would rather pay it than keep a
-hand-rolled field to preserve a habit.
+## What I left alone, and would do next
 
-**Tests.** The project arrived with one, asserting that a memberwise initialiser assigns its
-parameters. It could not fail, so I deleted it: a test that cannot go red is not coverage, it
-is a green light with nothing behind it. What the brief actually names — the list after
-permission, the filter by name or phone, the favourite that survives a relaunch — was
-untested because none of it was reachable: the view model built its own `CNContactStore`, and
-favourites wrote straight to `UserDefaults`. Both now take their dependency as a value, so a
-test can supply contacts or a failing fetch without a device and without touching real user
-defaults. Twenty-one tests cover the `CNContact` mapping, the load states including a failed
-reload with contacts already on screen, the search paths, and the fact that every favourite
-toggle is written out rather than only held in memory.
-
-I removed two more of my own on the way, by the same rule. One asserted that a nil birthday
-maps to nil. The other checked that a raw label constant had been turned into something
-displayable, but asserted only that the result did not look like a raw constant — too loose to
-mean anything. The count is not the measure; a suite is read at its weakest test.
-
-The seam is deliberately thin — closures, not protocols. A protocol per service plus a mock
-per protocol would be more ceremony to defend than the two initialisers it replaces.
-
-Where the seam sits is a deliberate line, not a gap in coverage. `UserDefaults` and
-`CNContactStore` are someone else's code, and both are replaced the same way, for the same
-reason: I test up to the boundary and not across it. What that leaves untested is the four
-lines of glue on the far side, which have no logic and are checked by running the app. The
-trade only holds because both contracts are tiny — a `Set<String>` in and out, an array of
-contacts. A bigger boundary would earn contract tests.
-
-One consequence worth naming, because it is the first thing I would ask: the favourites test
-double is a class rather than two closures over a local variable, and that is not a style
-choice. `FavoritesStorage` is built from `@Sendable` closures, and Swift 6 rejects a mutable
-capture inside one — I tried, and the compiler refuses with *reference to captured var in
-concurrently-executing code*. Shared state across those closures has to be a reference type.
-That is also where its `@unchecked Sendable` comes from, and it is only sound because this
-target runs everything on the main actor.
-
-**A debug menu, because seven contacts prove nothing.** The simulator's address book holds
-seven entries, none accented, none organisation-only. Nothing I could verify on it told me how
-the list behaves at a realistic size. A ladybug menu in the toolbar — `#if DEBUG`, three items
-— serves generated contacts in place of the real ones: add a hundred, empty the list, go back.
-
-It works through the same seam the tests use. `ContactsService` is a struct of closures, so
-the menu hands the view model a different one; the list then goes through the same `load()`,
-the same filter, the same `List`, and the mock data survives a pull-to-refresh exactly as real
-data would. Writing into the real address book was the first version and I deleted it: it
-needed write access, a containment group and selective deletion, and a button that calls
-`delete()` on someone's contacts is a loaded gun the day the app runs on a phone.
-
-The generated data is chosen to attack the open findings rather than to look plausible —
-accented names against the diacritic search, four phone formats against the number filter,
-ten percent organisation-only against `displayName`, and birthdays with no year, which
-reproduce the year-1 bug on demand.
-
-Two things came out of building it. Wiring the photo path revealed that `ContactDetailView`
-was still being handed the *live* service while the list had switched to the mock, so the
-detail screen queried the real `CNContactStore` with an invented identifier — visible only in
-the runtime log, never on screen. The fix is better production code regardless of debug: the list
-view no longer keeps a copy of the service in order to hand it on. The detail screen is given
-whichever service the view model holds at the moment it is pushed, so the two can no longer
-disagree. And folding the old `MockGenerator` into this generator put every fixture behind
-`#if DEBUG`, which a Release build confirms: mock data no longer ships in the binary.
-
-Two of those tests are worth singling out. The diacritic one is backed by a fixture named
-`Jérôme Müller` and was checked by mutation: putting `localizedCaseInsensitiveContains` back
-makes it fail, and only it. A test that passes with the bug in place is not a test. The other
-asserts that `muller jerome` finds *nothing* — it pins a known limitation rather than a wanted
-behaviour, and it is meant to break the day someone moves to per-word matching.
-
-## What I deliberately left alone
-
-**The star nested inside the row button.** Reading the code, this looked like a hit-test
-bug: a `Button` inside a `Button`. I flagged it as blocking. Then I tested it on device —
-tapping the star toggles the favourite and does not navigate; tapping anywhere else
-navigates. The code is correct. Changing it would have been a refactor of working code with
-no defensible reason.
-
-**The remaining computed view properties.** `content` is a `switch` over the load state —
-extracting it would create a type that receives everything the parent has in order to re-emit
-the same switch. `contactsList` and `initialsAvatar`: same reasoning, no narrower inputs, or
-too small to justify a type.
-
-**No `ContactDetailViewModel`.** The list screen has a view model and the detail screen does
-not, which looks like an inconsistency and is worth saying out loud. The detail screen owns
-one piece of state — the full-size photo — and makes one call to get it. A view model there
-would be a type whose entire content is that `@State` and that `await`, added to make a folder
-look symmetrical. The list earned one because it holds load state, search text and a filter
-that needed to become testable; the detail holds none of that.
-
-**Phone search does not normalise country codes.** A contact stored as `06 12 34 56 78` is
-not found by typing `+33612345678`. The predicate reduces both sides to digits and asks
-whether the stored digits *contain* the typed ones, so `"0612345678"` never contains
-`"33612345678"` and the match fails. Verified at runtime: `0612345678`, `612345678` and
-`34 56` all find the contact; `+33612345678` and `0033612345678` do not.
-
-Fixing this properly means E.164 normalisation, which means libphonenumber — a dependency
-I am not willing to add to a project this size. The cheap alternative is to compare the last
-nine digits of each side. That resolves the international case but breaks searching by a
-fragment in the middle of a number: `34 56` would stop matching. It is a trade between two
-real behaviours, not a strict improvement, so I kept the current one and named the gap here
-rather than shipping a heuristic I would have to defend.
-
-Two smaller relatives of the same predicate. `Dupont Jean` does not find `Jean Dupont` —
-the name test is a substring search, not per-word matching. And a query typed with
-Arabic-Indic digits satisfies `isWholeNumber`, so it passes `isPhoneNumber` and then can
-never match numbers stored in ASCII: an empty result with nothing explaining it.
-
-**Generation-tracking in `load()`.** `load()` reads the service, awaits the fetch, and assigns
-the result afterwards. A load already in flight when the service changes will therefore
-overwrite whatever the newer one produced. The fix is a generation counter compared before
-assigning — three lines and a guard in each catch.
-
-I left it. The only thing that ever swaps the service is the debug menu, so in a release build
-every concurrent `load()` reads the same source and last-writer-wins is the correct outcome.
-Adding a counter to production code to protect a debug affordance buys a defect nobody can
-reach and costs a mechanism the next reader has to justify. If a second real source ever
-appears — an in-memory cache, a second account — this becomes a genuine bug and the counter
-becomes the right answer.
-
-**Micro-optimising the filter any further.** After moving search into the store I measured
-three variants of the predicate. Evaluating the filter once per render instead of twice
-bought most of the gain; hoisting the query-invariant work out of the per-contact loop and
-precomputing each contact's digits at mapping time bought 0.48 ms and 0.36 ms respectively
-on 500 contacts. The same measurement showed why: on 5000 contacts a name query still costs
-6.4 ms with everything else optimised, because `localizedStandardContains` runs per contact
-and cannot be precomputed. The name comparison is the floor, so tuning the phone path is
-effort spent where the time is not.
-
-## Where I was wrong
-
-Three times, and all three are in the audit.
-
-I classified the nested-button hit test as blocking on a code reading alone. Testing
-disproved it.
-
-I then claimed that toggling a favourite re-runs `ContactsListView.body` and recomputes the
-filter, because `favorites.contains(...)` is written inside the parent's body. I measured it
-with temporary probes: the parent body does **not** re-run — only the six row bodies do. The
-row-content closure of a `List` is evaluated in the row's own context, so the observation
-read is attributed there. My proposed fix is still worth doing, but it buys less than I
-said: six full rows become six leaf views, not "the parent stops running".
-
-Third, I wrote that a denied permission is never re-checked — grant it in Settings, come
-back, and the app sits on "No Access" until relaunch. I tested both directions with the
-app in the foreground and watched `launchctl list`: iOS terminates the app on *any*
-Contacts permission change, granting included. The next launch starts from `.idle` and
-resolves correctly. There is nothing to fix, and a `scenePhase` re-check would be dead
-code. The same reasoning retires a related asymmetry in `load()` — the `.denied` catch has
-no `contacts.isEmpty` guard where the generic catch does, which would swap a populated list
-for the permission screen, except the process never lives long enough to do it.
-
-The pattern in all three: a defect that is obvious on the page and absent from the device.
-It is why the audit tags every claim with how I know it.
-
-## Questions I would take to design
-
-Two gaps are real but the right answer is a product decision, not an engineering one. I
-made the conservative call and would raise both rather than invent an interface.
-
-**A failed refresh with contacts already on screen.** It used to fail silently: the list
-stayed, `loadState` stayed `.loaded`, and nothing told the user the refresh had not worked.
-I now surface the error screen unconditionally, which also makes this catch agree with the
-`.denied` one next to it. The cost is that a transient failure replaces a list the user was
-reading. The better answer is probably to keep the list and show a non-blocking signal —
-banner, toast, or an inline row — but which one, and how insistent, is a design call.
-
-**Limited contacts access.** On iOS 18+ the user can share a subset. The app treats
-`.limited` as full authorisation, which is right — you show what you were given — but it
-presents a partial address book as if it were complete. Someone who shared two contacts
-searches for a third, finds nothing, and has no way to understand why or to widen the
-selection from inside the app. The minimum is a banner plus the Settings link we already
-have; a proper "manage shared contacts" flow is a design and API question.
-
-## What I would do next, in order
-
-1. **`Contact` equality is unstable.** `LabeledValue` has `let id = UUID()`, and `Hashable`
-   is synthesised, so two `Contact` values built from the same `CNContact` are never equal.
-   That breaks SwiftUI's ability to skip unchanged subviews, and it means the
-   `NavigationStack` path no longer matches its contact after a pull-to-refresh. This is the
-   root cause behind several smaller symptoms, so it goes first.
-2. **Birthdays without a year render as year 1.** `CNContact.birthday` is a `DateComponents`
-   whose `year` is often nil, and `Calendar.date(from:)` fills it with 1.
-3. **Touch targets.** The star measures 22×20 pt in the list and 32×36 pt in the detail
-   toolbar, against Apple's 44×44 minimum.
-
-## Verification
-
-Everything I claim to have tested was tested on an iPhone 17 Pro simulator running
-iOS 26.5: navigation, favourite toggling from both screens, favourite sync between them,
-persistence across a relaunch, search by name, search by phone number with a space, and the
-permission-denied screen. `docs/UI-FINDINGS.md` marks anything I could not trigger.
-
-Two claims rest on weaker evidence, and I would rather say so than let the list above cover
-them.
-
-Both of those gaps have since closed, and the debug menu is what closed them. Seeding a
-hundred generated contacts puts accented names in the address book, so typing `muller` into
-the running app now returns seven `Müller` rows on screen — the diacritic fix is no longer
-resting on a green suite alone. Typing `9829` returns exactly the one contact whose number
-ends in it, and a query matching nothing shows `ContentUnavailableView.search`.
-
-That also means I finally typed into the iOS 26 search field, which earlier I could not focus
-through UI automation. The field sits at the bottom of the screen, and a touch with a short
-delay takes focus where a longer one opens the Paste menu. Autocorrection stayed out of the
-way on `muller`, `9829` and the accented names — that is observation, not a test, but it is
-more than the nothing this paragraph used to admit to.
-
-The timings quoted earlier come from a standalone benchmark on an Apple Silicon Mac, not from
-Instruments on device; a phone is slower, so treat them as ratios rather than absolutes.
+- `Contact.LabeledValue` holds a `let id = UUID()`, so two contacts built from the same system
+  contact are never equal. This is the root of a few smaller symptoms and would go first.
+- A birthday with no year renders as year 1. Fixing it properly means keeping the date
+  components rather than a `Date`, which touches the model and the detail screen.
+- The star is 22×20 pt in the list, against Apple's 44×44 minimum.
+- Phone search does not normalise country codes: a number stored as `06 12 34 56 78` is not
+  found by typing `+33612345678`. Doing it properly means E.164 normalisation, which means a
+  dependency I did not want to add here.
+- Limited contacts access is handled with a banner and the system picker, but the case where
+  the user shares zero contacts still shows the generic empty state.
